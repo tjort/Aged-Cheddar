@@ -150,7 +150,8 @@ var Protoroom = function(props) {
 		'inPolygon': function(point) {
 
 		    var tx = point[0], ty = point[1];
-			tx = 170; ty = 170;
+
+			//console.log("test", tx, ty);
 
 		    var inside = false;
 		    for (var x=0,max=this.points.length;x<max;x++) {
@@ -159,57 +160,44 @@ var Protoroom = function(props) {
 				var p 		= this.points[x],
 					np 		= this.points[n];
 
-		        var intersect = false;
+				//console.log("side", p[0], p[1], np[0], np[1]);
 
+				var m1 = (p[1]-np[1])/(p[0]-np[0]);
+    			var m2 = (0-ty)/(0-tx);
 
+    			// paralel
+    			if (Math.abs(m1-m2) > 0) {
 
-		        // side has both points higher or lower than us? that's ok.
-		        // side has one point lower and one point higher than us? that is a problem.
-		       //  if ((p[1] > ty) != (np[1] > ty)) {
+	    			var b1 = p[1]-(p[0])*m1;
+	    			var b2 = 0;
 
-				 	//if ((p[0] > tx) != (np[0] > tx)) {
+	    			var intersectionX = (b1*-1+b2)/(m1-m2);
+	    			var intersectionY = m1*intersectionX+b1;
 
-			        	// fetch intersection point
-			        	var m = (p[1] - np[1]) / (p[0] - np[0]);
-			        	var formulaY = p[1] + (m * (tx - p[0]));
-						var formulaX =  p[0] + (1/m * (ty - p[1]));
+	    			//console.log("inter", intersectionX, intersectionX);
 
-						// get the bounding box
-						var minX = Math.min(p[0], np[0], tx), maxX = Math.max(p[0], np[0], tx);
-						var minY = Math.min(p[1], np[1], ty), maxY = Math.max(p[1], np[1], ty);
+	    			var intersect = (
+	    				this.segmentBounds(intersectionX, intersectionY, 0, 0, tx, ty) &&
+	    				this.segmentBounds(intersectionX, intersectionY, p[0], p[1], np[0], np[1])
+					);
+					//console.log("intersect:", intersect);
+					if (intersect) inside = !inside;
 
-						// if the intersection is within the bounding box, we intersect
-						if ((formulaX >= minX) && (formulaX <= maxX)) {
-							if ((formulaY >= minY) && (formulaY <= maxY)) {
-								intersect = true;
-							}
-						}
-
-
-
-						console.log("tx ty", tx, ty);
-			        	console.log("p np", p, np);
-			        	console.log("formula y", p[1], " + ", m, " x ", tx, " - ", p[0]);
-			        	console.log("formula x", p[0], " + ", m, " x ", ty, " - ", p[1]);
-			        	console.log("f", formulaX, formulaY);
-
-			        	if ((p[0] > formulaX) != (np[0] > formulaX)) {
-			        			intersect = true;
-						}
-						if ((p[1] > formulaY) != (np[1] > formulaY)) {
-			        			intersect = true;
-			        	}
-
-
-
-			        	console.log(intersect);
-		        //}
-
-		        if (intersect) inside = !inside;
-		    }
-
-		    return inside;
-		},
+				}
+    		}
+    		//console.log("inside:", inside);
+    		return inside;
+    	},
+    	'segmentBounds': function(pX, pY, lX1, lY1, lX2, lY2) {
+			var mnX = Math.min(lX1, lX2);
+			var mxX = Math.max(lX1, lX2);
+			if(!(mnX <= pX && pX <= mxX)) return false;
+			return true;
+    	},
+		'linesBoundingBoxesIntersect': function(x1, y1, x2, y2) {
+        return a[0] <= b[1].x && a[1].x >= b[0].x && a[0].y <= b[1].y
+                && a[1].y >= b[0].y;
+    	},
 		'randomPointInTriangle': function(tri) {
     		var a = Math.random();
     		var b = Math.random();
@@ -239,7 +227,6 @@ var Protoroom = function(props) {
 			console.log("error in random point (room)!");
 			return false;
 		}
-
 	}, props);
 }
 
@@ -438,7 +425,7 @@ $(function() {
 
 	// add some dots that can move inside rooms and from room to room
 
-	for (var x=0; x<0;x++) {
+	for (var x=0; x<1000;x++) {
 		protomove.addObject(new Protodot(
 			{'zIndex': 100, 'room': blueRoom, 'rooms': rooms}
 		));
