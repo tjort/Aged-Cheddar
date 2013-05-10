@@ -13,8 +13,8 @@ var Protomove = function() {
 		'init': function() {
 			/* canvas */
 			this.canvas = document.createElement("canvas");
-			this.canvas.width = 480;
-			this.canvas.height = 320;
+			this.canvas.width = 800;
+			this.canvas.height = 800;
 			this.context = this.canvas.getContext("2d");
 			document.body.appendChild(this.canvas);
 
@@ -47,7 +47,8 @@ var Protomove = function() {
 			window.requestAnimationFrame($.proxy(this.render,this));
 		},
 		'renderSort': function(a, b) {
-			if (a.zIndex!=b.zIndex) return a.zIndex>b.zIndex;
+			if (a.zIndex!=b.zIndex) return a.zIndex>b.zIndex;			
+			if (typeof(a.position) == 'undefined') return false; 
 			return a.position.y>b.position.y;
 		},
 		'addObject': function(obj) {
@@ -251,7 +252,7 @@ var Protodot = function(props) {
 		'start': null,
 
 		'thrust': 0,
-		'maxThrust': 20,
+		'maxThrust': 10,
 
 		'angle': 0,
 		'lastUpdate': 0,
@@ -329,25 +330,25 @@ var Protodot = function(props) {
 			    	this.target = this.randomPositionInRoom();
 			    }
 
-				if (!this.inRoom(this.position) && this.clipToRoom) {
-					this.color = "#A0CDD2";
-					//this.thrust -= 1;
-					// this.position.x -= velX;
-					// this.position.y -= velY;
-				} else {
-					this.color = "#FF0000";
-				}
+//				if (!this.inRoom(this.position) && this.clipToRoom) {
+//					this.color = "#A0CDD2";
+//					//this.thrust -= 1;
+//					// this.position.x -= velX;
+//					// this.position.y -= velY;
+//				} else {
+//					this.color = "#FF0000";
+//				}
 		},
 
 		'render': function(c) {
 			// highlight target
-			if (this.target != null) {
-				c.fillStyle= "#000000"; // sets color
-				c.beginPath();
-				c.arc(this.target.x, this.target.y, 5, 0, Math.PI*2, true);
-				c.closePath();
-				c.fill();
-			}
+//			if (this.target != null) {
+//				c.fillStyle= "#000000"; // sets color
+//				c.beginPath();
+//				c.arc(this.target.x, this.target.y, 5, 0, Math.PI*2, true);
+//				c.closePath();
+//				c.fill();
+//			}
 
 			c.fillStyle= this.color; // sets color
 			c.beginPath();
@@ -415,19 +416,54 @@ $(function() {
 		[240, 240],
 		[60, 230]
 	];
+	
+	var p2 = [
+		[300, 300],
+		[450, 200],
+		[700, 600],
+		[260, 700]
+	];
+	
+	var p3 = [
+		[50, 600],
+		[100, 700],
+		[100, 750],
+		[10, 750]
+	];
+
+	
 	var blueRoom = new Protoroom(
 		{'zIndex': 10, 'points': p}
 	);
+	
+	var whiteRoom = new Protoroom(
+		{'zIndex': 10, 'points': p2, 'color': '#FFFFFF'}
+	);
+	
+	var orangeRoom = new Protoroom(
+		{'zIndex': 10, 'points': p3, 'color': '#DE7112'}
+	);
+	
 	rooms.push(blueRoom);
+	rooms.push(whiteRoom);
+	rooms.push(orangeRoom);
+
 
 	// add
 	protomove.addObjects(rooms);
 
 	// add some dots that can move inside rooms and from room to room
 
-	for (var x=0; x<1000;x++) {
+	for (var x=0; x<500;x++) {
 		protomove.addObject(new Protodot(
-			{'zIndex': 100, 'room': blueRoom, 'rooms': rooms}
+			{'zIndex': 100, 'room': blueRoom, 'rooms': rooms, 'updateThreshold': 3}
+		));
+		protomove.addObject(new Protodot(
+			{'zIndex': 100, 'room': whiteRoom, 'rooms': rooms, 'updateThreshold': 3, 'color': '#a1f6c2'}
+		));
+		
+		protomove.addObject(new Protodot(
+			{'zIndex': 100, 'room': orangeRoom, 'rooms': rooms, 'updateThreshold': 3, 'color': '#FFFF00'}
 		));
 	}
 
