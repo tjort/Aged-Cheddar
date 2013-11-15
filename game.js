@@ -47,8 +47,8 @@ var Protomove = function() {
 			window.requestAnimationFrame($.proxy(this.render,this));
 		},
 		'renderSort': function(a, b) {
-			if (a.zIndex!=b.zIndex) return a.zIndex>b.zIndex;			
-			if (typeof(a.position) == 'undefined') return false; 
+			if (a.zIndex!=b.zIndex) return a.zIndex>b.zIndex;
+			if (typeof(a.position) == 'undefined') return false;
 			return a.position.y>b.position.y;
 		},
 		'addObject': function(obj) {
@@ -91,7 +91,7 @@ var Protoroom = function(props) {
 		'render': function(c) {
 			c.strokeStyle="#FFFFFF";
 			c.fillStyle=this.color;
-			//c.fillRect(this.position.x,this.position.y,this.size.width,this.size.height);
+
 			c.beginPath();
 			c.moveTo(this.points[0][0],this.points[0][1]);
 			for (var x=1,max=this.points.length;x<max;x++) {
@@ -100,24 +100,55 @@ var Protoroom = function(props) {
 			c.lineTo(this.points[0][0],this.points[0][1]);
 			c.fill();
 			c.stroke();
+
+			// render triangles
+			c.fillStyle='rgba(0,0,0,0)';
+			c.strokeStyle='#00FF00';
+			c.beginPath();
+			for (var x=0,max=this.triangles.length;x<max;x++) {
+				c.moveTo(this.triangles[x][0][0],this.triangles[x][0][1]);
+				c.lineTo(this.triangles[x][1][0],this.triangles[x][1][1]);
+				c.lineTo(this.triangles[x][2][0],this.triangles[x][2][1]);
+				c.lineTo(this.triangles[x][0][0],this.triangles[x][0][1]);
+			}
+			c.stroke();
 		},
 		'triangulate': function() {
 			var triangles = [];
-			for (var x=0,max=this.points.length;x<max;x++) {
+			var points = this.points.slice(0, this.points.length);
+
+			var x = 0; var safety=0;
+			console.log("pts", points);
+			while (points.length > 3) {
+				var max = points.length;
 				var n = x + 1; if (n == max) n = 0;
 				var nn = n + 1; if (nn == max) nn = 0;
 
-				var p 		= this.points[x],
-					np 		= this.points[n],
-					nnp 	= this.points[nn],
-					mid 	= this.middlePoint(p, nnp);
+				var p 		= points[x],
+					np 		= points[n],
+					nnp 	= points[nn],
+					midA 	= this.middlePoint(p, nnp);
 
-				if (this.inPolygon(mid)) {
+				if (this.inPolygon(midA)) {
 					// ok, we can safely create a triangle of these three points
 					triangles.push([p,np,nnp]);
-					x++;
+					//points.splice(nn,1);
+					points.splice(n,1);
+					//points.splice(x,1);
+					// points[n] = midA;
+					// points.splice(nn, 1);
+					// points.splice(x, 1);
+					console.log("pts", points);
 				}
+				x++;
+				safety++;
+				if (safety > 999) break;
 			}
+			if (points.length == 3) {
+				triangles.push([points[0],points[1],points[2]]);
+			}
+			console.log(triangles);
+
 			// weighed triangle, based on area size
 			var totalArea = 0, areas = [];
 			for (var x=0,max=triangles.length;x<max;x++) {
@@ -246,7 +277,7 @@ var Protodot = function(props) {
 		'room': null,
 		'rooms': [],
 
-		'updateThreshold': 100,
+		'updateThreshold': 10,
 
 		'target': null, //{'x': 0, 'y': 0},
 		'start': null,
@@ -330,14 +361,13 @@ var Protodot = function(props) {
 			    	this.target = this.randomPositionInRoom();
 			    }
 
-//				if (!this.inRoom(this.position) && this.clipToRoom) {
-//					this.color = "#A0CDD2";
-//					//this.thrust -= 1;
-//					// this.position.x -= velX;
-//					// this.position.y -= velY;
-//				} else {
-//					this.color = "#FF0000";
-//				}
+				if (!this.inRoom(this.position) && this.clipToRoom) {
+					this.color = "#A0CDD2";
+					this.angle = this.angle+180; if (this.angle>360) this.angle-=360;
+				} else {
+					this.color = "#FF0000";
+
+				}
 		},
 
 		'render': function(c) {
@@ -416,37 +446,40 @@ $(function() {
 		[240, 240],
 		[60, 230]
 	];
-	
+
 	var p2 = [
 		[300, 300],
-		[450, 200],
-		[700, 600],
-		[260, 700]
+		[400, 200],
+		[500, 400],
+		[450, 450],
+		[100, 600],
+		[150, 300]
+
 	];
-	
-	var p3 = [
+
+	var p3= [
 		[50, 600],
 		[100, 700],
 		[100, 750],
 		[10, 750]
 	];
 
-	
+
 	var blueRoom = new Protoroom(
 		{'zIndex': 10, 'points': p}
 	);
-	
+
 	var whiteRoom = new Protoroom(
 		{'zIndex': 10, 'points': p2, 'color': '#FFFFFF'}
 	);
-	
+
 	var orangeRoom = new Protoroom(
-		{'zIndex': 10, 'points': p3, 'color': '#DE7112'}
+		{'zIndex': 10, 'points': p2, 'color': '#DE7112'}
 	);
-	
-	rooms.push(blueRoom);
+
+	//rooms.push(blueRoom);
 	rooms.push(whiteRoom);
-	rooms.push(orangeRoom);
+	//rooms.push(orangeRoom);
 
 
 	// add
@@ -454,17 +487,13 @@ $(function() {
 
 	// add some dots that can move inside rooms and from room to room
 
-	for (var x=0; x<500;x++) {
+	for (var x=0; x<10;x++) {
+
 		protomove.addObject(new Protodot(
-			{'zIndex': 100, 'room': blueRoom, 'rooms': rooms, 'updateThreshold': 3}
+			{'zIndex': 100, 'room': whiteRoom, 'rooms': rooms, 'color': '#FF0000'}
 		));
-		protomove.addObject(new Protodot(
-			{'zIndex': 100, 'room': whiteRoom, 'rooms': rooms, 'updateThreshold': 3, 'color': '#a1f6c2'}
-		));
-		
-		protomove.addObject(new Protodot(
-			{'zIndex': 100, 'room': orangeRoom, 'rooms': rooms, 'updateThreshold': 3, 'color': '#FFFF00'}
-		));
+
+
 	}
 
 
