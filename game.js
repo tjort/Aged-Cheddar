@@ -22,6 +22,17 @@ var Protomove = function() {
 			var requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
 			window.requestAnimationFrame = requestAnimationFrame;
 
+			// create rooms
+			var rooms = this.randomRooms();
+			for (var x=0,max=rooms.length;x<max;x++) {
+				this.addObject(rooms[x]);
+			}
+
+			//create protodot in random room
+			this.addObject(new Protodot(
+			{'zIndex': 100, 'room': rooms[0], 'rooms': rooms, 'color': '#FF0000'}
+			));
+
 			/* start */
 			this.startRender();
 		},
@@ -56,10 +67,43 @@ var Protomove = function() {
 			obj.parent = this;
 			this.objects.push(obj);
 		},
-		'addObjects': function(objs) {
-			for (var x=0,max=objs.length;x<max;x++) {
-				this.addObject(objs[x]);
+
+		'randomRooms': function() {
+			// generate an array of random rooms
+			var rooms = [], maxRooms = 1;
+
+			for (x = 0; x < maxRooms; x++) {
+				// p is an array of points that makes up a room
+				var center = [(Math.random() * (this.canvas.width - 20)) + 20, (Math.random() * (this.canvas.height - 20) + 20)];
+				var p = [], maxP = 6, angle = 45, angleAdd = Math.floor(360 / maxP);
+//(Math.random() * 10) + 3
+				for (x2 = 0; x2 < maxP; x2++) {
+					var pointX = -1, pointY = -1, lineTry = Math.random() * 50 + 50;
+
+					var safety = 0;
+					while (pointX<0 || pointX>this.canvas.width || pointY<0 || pointY>this.canvas.height) {
+						lineTry = lineTry - 1;
+						pointX = Math.floor(center[0] + lineTry*Math.cos(angle * Math.PI / 180));
+			    		pointY = Math.floor(center[1] + lineTry*Math.sin(angle * Math.PI / 180));
+			    		safety++;
+			    		if (safety>999 || lineTry < 0) {
+			    			console.log("err");
+			    			break;
+			    		}
+			    	}
+
+					// we go around drawing lines of varying height, if they are possible.
+					// if not we decrease the line height until we can
+			    	// at every point push it
+					p.push([pointX, pointY]);
+					angle = (angle + angleAdd) % 360;
+				}
+
+				console.log("adding room", p);
+				var room = new Protoroom({'zIndex': 10, 'points': p});
+				rooms.push(room);
 			}
+			return rooms;
 		},
 		'update': function() {
 			var delta = Date.now() - this.lastUpdate;
@@ -118,11 +162,12 @@ var Protoroom = function(props) {
 			var points = this.points.slice(0, this.points.length);
 
 			var x = 0; var safety=0;
-			console.log("pts", points);
 			while (points.length > 3) {
-				var max = points.length;
-				var n = x + 1; if (n == max) n = 0;
-				var nn = n + 1; if (nn == max) nn = 0;
+				var max = points.length-1;
+				if (x>max) x = x%max;
+				var n = x + 1; if (n > max) n = n%max;
+				var nn = n + 1; if (nn > max) nn = nn%max;
+				console.log("sampling", x, n, nn);
 
 				var p 		= points[x],
 					np 		= points[n],
@@ -142,7 +187,10 @@ var Protoroom = function(props) {
 				}
 				x++;
 				safety++;
-				if (safety > 999) break;
+				if (safety > 999) {
+					console.log("safety hatch");
+					break;
+				}
 			}
 			if (points.length == 3) {
 				triangles.push([points[0],points[1],points[2]]);
@@ -305,27 +353,10 @@ var Protodot = function(props) {
 			this.lastUpdate += d;
 		},
 		'step': function() {
-				if (this.target==null) {
-					this.setTarget(this.randomPositionInRoom());
-				}
-
-				var tx = this.target.x - this.position.x,
-				    ty = this.target.y - this.position.y,
-				    dist = Math.sqrt(tx*tx+ty*ty),
-				    angle = Math.atan2(ty,tx)/Math.PI * 180;
-
-				var startTx = this.start.x - this.position.x,
-				    startTy = this.start.y - this.position.y,
-				    startDist = Math.sqrt(startTx*startTx+startTy*startTy),
-				    progress = 1 - (dist / (dist + startDist));
-
-				this.thrust = 10*Math.sin(progress*Math.PI)+1;
-
-				// try to rotate to angle
-				var maxRotation = 20;
-				if (dist < 20) maxRotation = 50;
-				if (Math.random() > 0.95) maxRotation = 90;
-				this.angle = this.moveAngleTowards(this.angle, angle, maxRotation);
+				this.thrust = 1;
+				var maxRotate = Math.max(Math.abs(20 - (2 * this.thrust)), 5);
+				var angle = this.moveAngleTowards(this.angle, Math.floor(Math.random()*360), maxRotate);
+				this.angle = angle;
 
 			    var velX = this.thrust*Math.cos(this.toRadian(this.angle));
 			    var velY = this.thrust*Math.sin(this.toRadian(this.angle));
@@ -333,37 +364,38 @@ var Protodot = function(props) {
 				this.position.x += velX;
 				this.position.y += velY;
 
-				// look into the future
-				var tx = this.target.x - this.position.x,
-				    ty = this.target.y - this.position.y,
-				    dist = Math.sqrt(tx*tx+ty*ty),
-					angle2 = Math.atan2(ty,tx)/Math.PI * 180;
+				// // look into the future
+				// var tx = this.target.x - this.position.x,
+				//     ty = this.target.y - this.position.y,
+				//     dist = Math.sqrt(tx*tx+ty*ty),
+				// 	angle2 = Math.atan2(ty,tx)/Math.PI * 180;
 
-				var done = false;
-				if (dist < this.thrust) {
-					if (angle > 0 && angle2 < 0) done = true;
-					if (angle < 0 && angle2 > 0) done = true;
-					if (dist <= 1) done = true;
-				}
+				// var done = false;
+				// if (dist < this.thrust) {
+				// 	if (angle > 0 && angle2 < 0) done = true;
+				// 	if (angle < 0 && angle2 > 0) done = true;
+				// 	if (dist <= 1) done = true;
+				// }
 
-			    if (done) {
-			    	console.log("ALL DONE");
-			    	this.clipToRoom = true;
-			    	this.score++;
-			    	if (this.score > 9) {
-			    		this.score = 0;
-			    		var newRoom = this.rooms[Math.floor(Math.random()*this.rooms.length)];
-			    		if (newRoom != this.room) {
-			    			this.room = newRoom;
-			    			this.clipToRoom = false;
-			    		}
-			    	}
-			    	this.target = this.randomPositionInRoom();
-			    }
+			 //    if (done) {
+			 //    	console.log("ALL DONE");
+			 //    	this.clipToRoom = true;
+			 //    	this.score++;
+			 //    	if (this.score > 9) {
+			 //    		this.score = 0;
+			 //    		var newRoom = this.rooms[Math.floor(Math.random()*this.rooms.length)];
+			 //    		if (newRoom != this.room) {
+			 //    			this.room = newRoom;
+			 //    			this.clipToRoom = false;
+			 //    		}
+			 //    	}
+			 //    	this.target = this.randomPositionInRoom();
+			 //    }
 
 				if (!this.inRoom(this.position) && this.clipToRoom) {
 					this.color = "#A0CDD2";
-					this.angle = this.angle+180; if (this.angle>360) this.angle-=360;
+					console.log(this.angle);
+					this.angle = (this.angle+180)%360;
 				} else {
 					this.color = "#FF0000";
 
@@ -436,65 +468,4 @@ var Protodot = function(props) {
 $(function() {
 	var protomove = new Protomove();
 	protomove.init();
-
-	// add a room to the prototype
-	var rooms = [];
-
-	var p = [
-		[100, 100],
-		[200, 120],
-		[240, 240],
-		[60, 230]
-	];
-
-	var p2 = [
-		[300, 300],
-		[400, 200],
-		[500, 400],
-		[450, 450],
-		[100, 600],
-		[150, 300]
-
-	];
-
-	var p3= [
-		[50, 600],
-		[100, 700],
-		[100, 750],
-		[10, 750]
-	];
-
-
-	var blueRoom = new Protoroom(
-		{'zIndex': 10, 'points': p}
-	);
-
-	var whiteRoom = new Protoroom(
-		{'zIndex': 10, 'points': p2, 'color': '#FFFFFF'}
-	);
-
-	var orangeRoom = new Protoroom(
-		{'zIndex': 10, 'points': p2, 'color': '#DE7112'}
-	);
-
-	//rooms.push(blueRoom);
-	rooms.push(whiteRoom);
-	//rooms.push(orangeRoom);
-
-
-	// add
-	protomove.addObjects(rooms);
-
-	// add some dots that can move inside rooms and from room to room
-
-	for (var x=0; x<10;x++) {
-
-		protomove.addObject(new Protodot(
-			{'zIndex': 100, 'room': whiteRoom, 'rooms': rooms, 'color': '#FF0000'}
-		));
-
-
-	}
-
-
 });
